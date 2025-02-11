@@ -12,8 +12,8 @@
 5. [Evaluating models](#evaluating-models)  
 6. [Reproducing Deepseek's evaluation results](#reproducing-deepseeks-evaluation-results)  
 7. [Data generation](#data-generation)  
-   - [Generate data from a smol distilled R1 model](#generate-data-from-a-smol-distilled-r1-model)  
-   - [Generate data from DeepSeek-R1](#generate-data-from-deepseek-r1)  
+   - [Generate Data with Small Models](#generate-data-with-small-models)  
+   - [Generate Data with DeepSeek-R1](#generate-data-with-deepseek-r1)  
 8. [Contributing](#contributing)
 
 ## Overview
@@ -333,7 +333,7 @@ lighteval vllm $MODEL_ARGS "custom|gpqa:diamond|0|0" \
 python scripts/run_benchmarks.py --model-id={model_id}  --benchmarks gpqa
 ```
 
-## Data generation
+## Data Generation
 
 ### Generate data from a smol distilled R1 model
 
@@ -344,56 +344,38 @@ First install the following dependencies:
 uv pip install "distilabel[vllm]>=1.5.2"
 ```
 
-Now save the following snippet into a file named `pipeline.py` and run it with `python pipeline.py`. It will generate 4 outputs for each of the 10 examples (change the username for the repository to your org/user name):
+You can choose between two backend options for serving the model:
 
-```python
-from datasets import load_dataset
-from distilabel.models import vLLM
-from distilabel.pipeline import Pipeline
-from distilabel.steps.tasks import TextGeneration
-
-
-prompt_template = """\
-You will be given a problem. Please reason step by step, and put your final answer within \boxed{}:
-{{ instruction }}"""
-
-dataset = load_dataset("AI-MO/NuminaMath-TIR", split="train").select(range(10))
-
-model_id = "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"  # Exchange with another smol distilled r1
-
-with Pipeline(
-    name="distill-qwen-7b-r1",
-    description="A pipeline to generate data from a distilled r1 model",
-) as pipeline:
-
-    llm = vLLM(
-        model=model_id,
-        tokenizer=model_id,
-        extra_kwargs={
-            "tensor_parallel_size": 1,
-            "max_model_len": 8192,
-        },
-        generation_kwargs={
-            "temperature": 0.6,
-            "max_new_tokens": 8192,
-        },
-    )
-    prompt_column = "problem"
-    text_generation = TextGeneration(
-        llm=llm, 
-        template=prompt_template,
-        num_generations=4,
-        input_mappings={"instruction": prompt_column} if prompt_column is not None else {}
-    )
-
-
-if __name__ == "__main__":
-    distiset = pipeline.run(dataset=dataset)
-    distiset.push_to_hub(repo_id="username/numina-deepseek-r1-qwen-7b")
+#### Option 1: vLLM Backend
+```bash
+vllm serve deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
 ```
 
-Take a look at the sample dataset at [HuggingFaceH4/numina-deepseek-r1-qwen-7b](https://huggingface.co/datasets/HuggingFaceH4/numina-deepseek-r1-qwen-7b).
+#### Option 2: SGLang Backend
+```bash
+# Install SGLang dependencies
+pip install --upgrade pip
+pip install sgl-kernel --force-reinstall --no-deps
+pip install "sglang[all]>=0.4.2.post3" \
+    --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer/
 
+# Start the server
+python -m sglang.launch_server \
+    --model-path deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B \
+    --port 8000
+```
+
+### Generate Data with Small Models
+
+For single GPU setups (e.g., 1x H100), you can generate data using:
+```bash
+python src/open_r1/generate.py \
+    --hf-dataset "AI-MO/NuminaMath-TIR" \
+    --hf-dataset-split "train[:10]" \
+    --model "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B" \
+    --prompt-column "problem" \
+    --hf-output-dataset "your-username/DeepSeek-R1-Distill-Qwen-1.5B"
+```
 
 ### Generate data from DeepSeek-R1
 

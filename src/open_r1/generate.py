@@ -105,10 +105,10 @@ if __name__ == "__main__":
         help="Model name to use for generation",
     )
     parser.add_argument(
-        "--vllm-server-url",
+        "--server-url",
         type=str,
         default="http://localhost:8000/v1",
-        help="URL of the vLLM server",
+        help="URL of vLLM/sglang server",
     )
     parser.add_argument(
         "--temperature",
@@ -181,7 +181,7 @@ if __name__ == "__main__":
 
     pipeline = build_distilabel_pipeline(
         model=args.model,
-        base_url=args.vllm_server_url,
+        base_url=args.server_url,
         prompt_template=args.prompt_template,
         prompt_column=args.prompt_column,
         temperature=args.temperature,
